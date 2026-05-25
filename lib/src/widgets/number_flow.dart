@@ -4,6 +4,9 @@ import '../core/diff.dart';
 import '../render/glyph_stack.dart';
 import '../render/mask.dart';
 
+/// Default animation curve for NumberFlow widgets.
+const Curve kNumberFlowDefaultCurve = Curves.easeOutCubic;
+
 /// A Flutter widget that animates number changes with smooth, customizable transitions.
 ///
 /// The [NumberFlow] widget displays numbers with smooth animations when the value changes.
@@ -37,7 +40,7 @@ class NumberFlow extends StatefulWidget {
     this.previousValue,
     this.textStyle,
     this.duration = const Duration(milliseconds: 600),
-    this.curve = Curves.easeInOut,
+    this.curve = kNumberFlowDefaultCurve,
     this.animationStyle = NumberFlowAnimation.slide,
     this.format,
     this.textAlign = TextAlign.center,
@@ -45,6 +48,9 @@ class NumberFlow extends StatefulWidget {
     this.scrubProgress,
     this.enableMask = true,
     this.maskConfig = const MaskConfig(),
+    this.stagger = false,
+    this.staggerFactor = 0.04,
+    this.staggerDirection = StaggerDirection.rightToLeft,
   });
 
   /// Current number value to display
@@ -83,6 +89,16 @@ class NumberFlow extends StatefulWidget {
   /// Configuration for edge masking
   final MaskConfig maskConfig;
 
+  /// Whether to enable per-digit staggered animations
+  final bool stagger;
+
+  /// Factor controlling the stagger delay between digits (0.0 to 1.0).
+  /// Higher values increase the delay between each digit's animation start.
+  final double staggerFactor;
+
+  /// Direction in which the stagger delay is applied across digits
+  final StaggerDirection staggerDirection;
+
   @override
   State<NumberFlow> createState() => _NumberFlowState();
 }
@@ -95,6 +111,8 @@ class _NumberFlowState extends State<NumberFlow> with TickerProviderStateMixin {
   String _currentText = '';
   String _previousText = '';
   List<CharacterDiff> _diffs = [];
+  int _direction = 1;
+  final List<CurvedAnimation> _staggeredAnimations = [];
 
   @override
   void initState() {
@@ -115,8 +133,14 @@ class _NumberFlowState extends State<NumberFlow> with TickerProviderStateMixin {
     _formatter = NumberFormatter(widget.format ?? const NumberFlowFormat());
     _formatter.initialize();
 
+    // Compute initial direction from previousValue
+    if (widget.previousValue != null) {
+      _direction = widget.value > widget.previousValue! ? 1 : -1;
+    }
+
     // Format initial values
     _updateFormattedValues();
+    _rebuildDigitAnimations();
   }
 
   @override
@@ -147,6 +171,7 @@ class _NumberFlowState extends State<NumberFlow> with TickerProviderStateMixin {
 
     // Check if value changed - this is the main trigger for animation
     if (widget.value != oldWidget.value) {
+      _direction = widget.value > oldWidget.value ? 1 : -1;
       shouldAnimate = true;
     }
 
@@ -155,14 +180,53 @@ class _NumberFlowState extends State<NumberFlow> with TickerProviderStateMixin {
       // Store the old value as previous for animation
       final oldValue = oldWidget.value;
       _updateFormattedValues(oldValue);
+      _rebuildDigitAnimations();
       _startAnimation();
+    }
+
+    // Rebuild staggered animations if stagger params changed
+    if (widget.stagger != oldWidget.stagger ||
+        widget.staggerFactor != oldWidget.staggerFactor ||
+        widget.staggerDirection != oldWidget.staggerDirection) {
+      _rebuildDigitAnimations();
     }
   }
 
   @override
   void dispose() {
+    _disposeStaggeredAnimations();
     _localController.dispose();
     super.dispose();
+  }
+
+  void _disposeStaggeredAnimations() {
+    for (final anim in _staggeredAnimations) {
+      anim.dispose();
+    }
+    _staggeredAnimations.clear();
+  }
+
+  void _rebuildDigitAnimations() {
+    _disposeStaggeredAnimations();
+
+    if (!widget.stagger || _diffs.isEmpty) return;
+
+    final controller = _getEffectiveController();
+    final totalDiffs = _diffs.length;
+
+    for (int i = 0; i < totalDiffs; i++) {
+      final effectiveIndex =
+          widget.staggerDirection == StaggerDirection.rightToLeft
+              ? (totalDiffs - 1 - i)
+              : i;
+      final start = (effectiveIndex * widget.staggerFactor).clamp(0.0, 0.7);
+      _staggeredAnimations.add(
+        CurvedAnimation(
+          parent: controller,
+          curve: Interval(start, 1.0, curve: widget.curve),
+        ),
+      );
+    }
   }
 
   /// Get the effective animation controller (group or local)
@@ -243,14 +307,21 @@ class _NumberFlowState extends State<NumberFlow> with TickerProviderStateMixin {
   Widget _buildNumberDisplay(TextStyle textStyle) {
     final glyphWidgets = <Widget>[];
 
-    for (final diff in _diffs) {
+    for (int i = 0; i < _diffs.length; i++) {
+      final diff = _diffs[i];
+      final digitAnimation =
+          widget.stagger && i < _staggeredAnimations.length
+              ? _staggeredAnimations[i]
+              : _animation;
+
       glyphWidgets.add(
         GlyphStack(
           oldGlyph: diff.oldChar,
           newGlyph: diff.newChar,
           textStyle: textStyle,
-          animation: _animation,
+          animation: digitAnimation,
           animationStyle: widget.animationStyle,
+          direction: _direction,
         ),
       );
     }

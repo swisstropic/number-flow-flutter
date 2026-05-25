@@ -25,8 +25,10 @@ void main() {
       // Wait for initial render
       await tester.pumpAndSettle();
 
-      // The NumberFlow should display the formatted number
-      expect(find.text('123.45'), findsOneWidget);
+      // The NumberFlow should render (characters are individual Text widgets)
+      expect(find.byType(NumberFlow), findsOneWidget);
+      // Verify semantic label has the full formatted number
+      expect(find.bySemanticsLabel('123.45'), findsOneWidget);
     });
 
     testWidgets('NumberFlow animates value changes',
@@ -68,8 +70,8 @@ void main() {
       // Complete animation
       await tester.pumpAndSettle();
 
-      // Should now show updated value
-      expect(find.text('200'), findsOneWidget);
+      // Should now show updated value (semantic label)
+      expect(find.bySemanticsLabel('200'), findsOneWidget);
     });
 
     test('NumberFlowFormat configuration', () {
@@ -89,11 +91,19 @@ void main() {
     });
 
     test('NumberFlowAnimation enum values', () {
-      expect(NumberFlowAnimation.values.length, equals(2));
+      expect(NumberFlowAnimation.values.length, equals(4));
       expect(NumberFlowAnimation.values, contains(NumberFlowAnimation.slide));
       expect(
         NumberFlowAnimation.values,
         contains(NumberFlowAnimation.crossFade),
+      );
+      expect(
+        NumberFlowAnimation.values,
+        contains(NumberFlowAnimation.slideFade),
+      );
+      expect(
+        NumberFlowAnimation.values,
+        contains(NumberFlowAnimation.spin),
       );
     });
 

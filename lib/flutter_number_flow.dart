@@ -16,6 +16,12 @@ enum NumberFlowAnimation {
 
   /// Cross-fades between old and new digits
   crossFade,
+
+  /// Combines slide and fade for a smooth transition
+  slideFade,
+
+  /// Spins/rolls through intermediate digits like an odometer
+  spin,
 }
 
 /// Number notation styles for formatting
@@ -25,4 +31,13 @@ enum NumberNotation {
 
   /// Compact notation (e.g., 1.2K, 1.2M)
   compact,
+}
+
+/// Direction for per-digit staggered animations
+enum StaggerDirection {
+  /// Stagger from left digit to right digit
+  leftToRight,
+
+  /// Stagger from right digit to left digit
+  rightToLeft,
 }

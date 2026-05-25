@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_number_flow/src/widgets/number_flow.dart';
 
 /// Provides shared AnimationController for synchronized NumberFlow animations
 class NumberFlowGroup extends InheritedWidget {
@@ -37,7 +38,7 @@ class NumberFlowGroupProvider extends StatefulWidget {
     required this.groupKey,
     required this.child,
     this.duration = const Duration(milliseconds: 600),
-    this.curve = Curves.easeInOut,
+    this.curve = kNumberFlowDefaultCurve,
   });
 
   /// Unique key for this animation group
