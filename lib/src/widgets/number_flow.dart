@@ -141,6 +141,21 @@ class _NumberFlowState extends State<NumberFlow> with TickerProviderStateMixin {
     // Format initial values
     _updateFormattedValues();
     _rebuildDigitAnimations();
+
+    // Make the initial value visible. Without this, a fresh mount with a
+    // non-zero value renders at 0-width / opacity 0: the crossFade/slideFade
+    // insertion path reads `progress = controller.value` (still 0 at mount),
+    // and `_startAnimation()` is only called from `didUpdateWidget`. So any
+    // NumberFlow that's conditionally inserted after its value is already
+    // settled — e.g. an exercise-burn counter that only appears once
+    // `burnt > 0` — would never paint a digit until the value next changes.
+    // If the caller passed a `previousValue`, kick the animation forward so
+    // we visibly animate from it; otherwise jump straight to the end.
+    if (widget.previousValue != null) {
+      _localController.forward();
+    } else {
+      _localController.value = 1.0;
+    }
   }
 
   @override
